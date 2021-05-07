@@ -179,18 +179,43 @@ class RTFM(commands.Cog):
                 url="https://pymongo.readthedocs.io/en/stable",
                 lang="Python"
             ),
+            "motor": Docs(
+                url="https://motor.readthedocs.io/en/stable",
+                lang="Python"
+            ),
             "yarl": Docs(
                 url="https://yarl.readthedocs.io/en/latest",
+                lang="Python"
+            ),
+            "wavelink": Docs(
+                url="https://wavelink.readthedocs.io/en/latest",
                 lang="Python"
             ),
             "requests": Docs(
                 url="https://docs.python-requests.org/en/master",
                 lang="Python"
             ),
+            "opencv": Docs(
+                url="https://docs.opencv.org/2.4.13.7",
+                lang="Python",
+                aliases=("cv","cv2")
+            ),
+            "sympy": Docs(
+                url="https://docs.sympy.org/latest/modules",
+                lang="Python"
+            ),
+            "scipy": Docs(
+                url="https://docs.scipy.org/doc/scipy/reference",
+                lang="Python"
+            )
             "selenium-py": Docs(
                 url="https://www.selenium.dev/selenium/docs/api/py",
                 lang="Python",
                 aliases=('selenium-python',)
+            ),
+            "ipython": Docs(
+                url="https://ipython.readthedocs.io/en/stable",
+                lang="Python"
             ),
             "pandas": Docs(
                 url="https://pandas.pydata.org/pandas-docs/stable",
