@@ -6,6 +6,7 @@ import discord
 import toml
 from discord.ext import commands
 
+
 class Context(commands.Context):
     async def mystbin(self, data: Any):
         data = bytes(str(data), 'utf-8')
@@ -20,7 +21,7 @@ class Bot(commands.AutoShardedBot):
         super().__init__(*args, **kwargs)
         # core
         self.loop = asyncio.get_event_loop()
-        self.cwd = "D:/coding/Coder/"
+        self.cwd = "D:/coding/codingassistant/"
         with open(self.cwd + "config.toml") as config:
             self.settings = toml.loads(config.read())
 
@@ -50,8 +51,3 @@ class Bot(commands.AutoShardedBot):
 
     async def get_context(self, message, *, cls=Context):
         return await super().get_context(message, cls=cls)
-
-
-
-
-
