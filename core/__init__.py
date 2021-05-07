@@ -51,3 +51,15 @@ class Bot(commands.AutoShardedBot):
 
     async def get_context(self, message, *, cls=Context):
         return await super().get_context(message, cls=cls)
+
+    
+class CommandMixin:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bot_perms = kwargs.pop("pp", None)
+
+class Command(commands.Command, CommandMixin):
+    pass
+
+class Group(Command, commands.Group, CommandMixin):
+    pass
