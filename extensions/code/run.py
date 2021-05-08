@@ -43,7 +43,6 @@ class ExecuteCode(commands.Cog):
         }
         async with self.bot.session.post("https://emkc.org/api/v1/piston/execute", json=data) as resp:
             data = await resp.json()
-            await ctx.send(data)
             if not resp.ok:
                 msg = f"```yaml\nThe API seems to be having an issue.\nStatus: {resp.status}"
                 if r_msg := data.get('message'):

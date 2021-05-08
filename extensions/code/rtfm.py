@@ -48,8 +48,8 @@ class WebScrapeRTFM:
                 split_ = result.strip("*").split("](")
                 lines.append(f'[`{split_[0]}`]({split_[1].rstrip(")")})')
 
-            await ctx.send(embed=format_embed(lines))
-            self.cache['discordjs'][query] = lines
+            await ctx.send(embed=format_embed(lines, "discord.js"))
+            self.cache['discord.js'][query] = lines
 
     async def rust(self, ctx, url, query):
         url = self.parse_url(url + query)
@@ -69,7 +69,7 @@ class WebScrapeRTFM:
             name = ''.join(i.text for i in spans)
             lines.append(f"[{name}]({links})")
 
-        await ctx.send(embed=format_embed(lines))
+        await ctx.send(embed=format_embed(lines, "Rust"))
         self.cache['rust'][query] = lines
         await sess.close()
 
@@ -83,16 +83,10 @@ class WebScrapeRTFM:
         if not len(results):
             await ctx.send(NOTHING_FOUND)
             return
-        links = results[0 if lang == "cpp" else 1].find_all('a', limit=8)
+        links = results[0 if lang == "c++" else 1].find_all('a', limit=8)
         lines = [f"[`{a.string}`](https://en.cppreference.com/{a.get('href')})" for a in links]
-        await ctx.send(embed=format_embed(lines))
+        await ctx.send(embed=format_embed(lines, lang.replace("p", "+").capitalize()))
         self.cache[lang][text] = lines
-
-    async def c(self, ctx, url, text):
-        await self.c_or_cpp(ctx, url, text, lang="c")
-
-    async def cpp(self, ctx, url, text):
-        await self.c_or_cpp(ctx, url, text, lang="cpp")
 
     @staticmethod
     def parse_url(url):
@@ -100,18 +94,25 @@ class WebScrapeRTFM:
 
     async def do_other(self, ctx, doc, url, query):
         if lines := self.cache.get(doc, {}).get(query):
-            await ctx.send(embed=format_embed(lines))
+            await ctx.send(embed=format_embed(lines, doc))
+            return True
         else:
-            try:
-                await getattr(self, doc)(ctx, url, query)
-            except Exception as e:
-                print(format_exception(type(e), e.__traceback__, e))
+            if doc == "discord.js":
+                await self.discordjs(ctx, url, query)
                 return True
+            if doc == "rust":
+                await self.rust(ctx, url, query)
+                return True
+            if doc in ("c", "c++"):
+                await self.c_or_cpp(ctx, url, query, doc)
+                return True
+            raise KeyError("Documentation not found.")
 
 
-def format_embed(lines):
+def format_embed(lines, doc):
     e = discord.Embed(colour=discord.Colour.blurple())
     e.description = "\n".join(lines)
+    e.set_footer(text=f"Showing results from {doc} documentation.")
     return e
 
 
@@ -119,24 +120,24 @@ class RTFM(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self._valid_docs = {
-            "discord.py": Docs(
+            "Discord.py": Docs(
                 url="https://discordpy.readthedocs.io/en/latest",
                 aliases=("d.py", "dpy"),
                 lang="Python"
             ),
-            "python": Docs(
+            "Python": Docs(
                 url="https://docs.python.org/3",
                 aliases=("py",),
                 lang="Python",
                 _type="Language"
             ),
-            "zaneapi": Docs(
+            "ZaneAPI": Docs(
                 url="https://docs.zaneapi.com/en/latest",
                 aliases=("zane",),
                 lang="N/A",
                 _type="API"
             ),
-            "pillow": Docs(
+            "Pillow": Docs(
                 url="https://pillow.readthedocs.io/en/stable",
                 aliases=("pil",),
                 lang="Python"
@@ -145,20 +146,20 @@ class RTFM(commands.Cog):
                 url="https://magicstack.github.io/asyncpg/current",
                 lang="Python"
             ),
-            "aiohttp": Docs(
+            "Aiohttp": Docs(
                 url="https://docs.aiohttp.org/en/stable",
                 lang="Python"
             ),
-            "wand": Docs(
+            "Wand": Docs(
                 url="https://docs.wand-py.org/en/0.6.5",
                 lang="Python"
             ),
-            "numpy": Docs(
+            "NumPy": Docs(
                 url="https://numpy.org/doc/1.20",
                 aliases=('np',),
                 lang="Python"
             ),
-            "rust": Docs(
+            "Rust": Docs(
                 url="https://doc.rust-lang.org/std/?search=",  # url="https://doc.rust-lang.org/std/all.html",
                 doc_url="https://doc.rust-lang.org/std/all.html",
                 method=1,
@@ -166,96 +167,96 @@ class RTFM(commands.Cog):
                 lang="Rust",
                 _type="Language"
             ),
-            "beautifulsoup": Docs(
+            "BeautifulSoup": Docs(
                 url="https://www.crummy.com/software/BeautifulSoup/bs4/doc",
                 aliases=('bs4', 'beautifulsoup4'),
                 lang="Python"
             ),
-            "flask": Docs(
+            "Flask": Docs(
                 url="https://flask.palletsprojects.com/en/1.1.x",
                 lang="Python"
             ),
-            "pymongo": Docs(
+            "PyMongo": Docs(
                 url="https://pymongo.readthedocs.io/en/stable",
                 lang="Python"
             ),
-            "motor": Docs(
+            "Motor": Docs(
                 url="https://motor.readthedocs.io/en/stable",
                 lang="Python"
             ),
-            "yarl": Docs(
+            "Yarl": Docs(
                 url="https://yarl.readthedocs.io/en/latest",
                 lang="Python"
             ),
-            "wavelink": Docs(
+            "Wavelink": Docs(
                 url="https://wavelink.readthedocs.io/en/latest",
                 lang="Python"
             ),
-            "requests": Docs(
+            "Requests": Docs(
                 url="https://docs.python-requests.org/en/master",
                 lang="Python"
             ),
-            "opencv": Docs(
+            "OpenCV": Docs(
                 url="https://docs.opencv.org/2.4.13.7",
                 lang="Python",
                 aliases=("cv","cv2")
             ),
-            "sympy": Docs(
+            "SymPy": Docs(
                 url="https://docs.sympy.org/latest/modules",
                 lang="Python"
             ),
-            "scipy": Docs(
+            "SciPy": Docs(
                 url="https://docs.scipy.org/doc/scipy/reference",
                 lang="Python"
-            )
-            "selenium-py": Docs(
+            ),
+            "Selenium-py": Docs(
                 url="https://www.selenium.dev/selenium/docs/api/py",
                 lang="Python",
                 aliases=('selenium-python',)
             ),
-            "ipython": Docs(
+            "IPython": Docs(
                 url="https://ipython.readthedocs.io/en/stable",
                 lang="Python"
             ),
-            "pandas": Docs(
+            "Pandas": Docs(
                 url="https://pandas.pydata.org/pandas-docs/stable",
                 lang="Python"
             ),
-            "pygame": Docs(
+            "PyGame": Docs(
                 url="https://www.pygame.org/docs",
                 lang="Python"
             ),
-            "matplotlib": Docs(
+            "MatPlotLib": Docs(
                 url="https://matplotlib.org/stable",
                 lang="Python"
             ),
-            "c": Docs(
+            "C": Docs(
                 url="https://cppreference.com/w/c/index.php",
                 lang="C",
                 _type="Language",
                 method=1
             ),
-            "cpp": Docs(
+            "C++": Docs(
                 url="https://cppreference.com/w/cpp/index.php",
                 lang="C++",
                 _type="Language",
-                aliases=('c++',),
+                aliases=('cpp',),
                 method=1
             ),
-            "sqlalchemy": Docs(
+            "SqlAlchemy": Docs(
                 url="https://docs.sqlalchemy.org/en/14",
                 lang="Python"
             ),
-            "discordjs": Docs(
+            "Discord.js": Docs(
                 url="https://djsdocs.sorta.moe/v2/embed?src=stable&q=",
                 doc_url="https://discord.js.org/#/docs/main/stable/general/welcome",
                 method=1,
                 lang="JavaScript",
-                aliases=("d.js", "djs", "discord.js")
+                aliases=("d.js", "djs")
             )
         }
         self.rtfm_cache = {item: {} for item in self._valid_docs}
-        self.webscrape = WebScrapeRTFM(self.bot, [m for m, value in self._valid_docs.items() if value.method == 1])
+        self.webscrape = WebScrapeRTFM(self.bot, [m.lower() for m, value in self._valid_docs.items() if value.method == 1])
 
     def get_url(self, key, parsing=True):
         doc = self._valid_docs[key]
@@ -287,7 +288,7 @@ class RTFM(commands.Cog):
         if len(matches) == 0:
             return await ctx.send(NOTHING_FOUND)
 
-        await ctx.send(embed=format_embed([f'[`{match}`]({cache[match]})' for match in matches]))
+        await ctx.send(embed=format_embed([f'[`{match}`]({cache[match]})' for match in matches], key))
 
     async def do_rtfm(self, ctx, key, obj):
         if obj is None:
@@ -298,34 +299,37 @@ class RTFM(commands.Cog):
         if method == 0:
             await self.from_sphinx(ctx, key, obj)
         if method == 1:
-            not_worked = await self.webscrape.do_other(ctx, key, self.get_url(key), obj)
-            if not_worked:
+            worked = await self.webscrape.do_other(ctx, key.lower(), self.get_url(key), obj)
+            if not worked:
                 await ctx.send("Looks like something went wrong.")
 
     def get_key(self, query):
-        for key, value in self._valid_docs.items():
-            if key == query:
-                return key
-            if aliases := value.aliases:
-                if query in aliases:
-                    return key
+        return self.valid_docs[query]
 
     @property
     def valid_docs(self):
-        items = {name: name for name in self._valid_docs}
+        items = {name.lower(): name for name in self._valid_docs}
         for name, doc in self._valid_docs.items():
             if not doc.aliases:
                 continue
             for alias in doc.aliases:
-                items[alias] = name
+                items[alias.lower()] = name
         return items
 
     @commands.group(
         invoke_without_command=True,
-        aliases=('doc', 'documentation', 'docs', 'rtfs', 'rtm')
+        aliases=('doc', 'documentation', 'docs', 'rtfs', 'rtm'),
+        usage="<documentation> <query>"
     )
-    async def rtfm(self, ctx, documentation, *, query=None):
+    async def rtfm(self, ctx, documentation=None, *, query=None):
         """Sends documentation based on an entity."""
+        if documentation is None and query is None:
+            await self.valid(ctx)
+            return
+        documentation = documentation.lower()
+        if not query:
+            await self.info(ctx, documentation)
+            return
         if documentation not in self.valid_docs:
             await self.valid(ctx)
             return
@@ -335,11 +339,12 @@ class RTFM(commands.Cog):
     async def valid(self, ctx):
         embed = discord.Embed(color=discord.Color.red())
         embed.title = "These are the valid items you can query for documentation."
-        embed.description = "Note that some may share the same results.\n`" + "`, `".join(sorted(self.valid_docs)) + "`"
+        embed.description = f"Some of these may have aliases, you can use the `{ctx.prefix}rtfm info <doc>` command.\n\n`" + "`, `".join(sorted(self._valid_docs)) + "`"
         await ctx.send(embed=embed)
 
     @rtfm.command()
     async def info(self, ctx, documentation):
+        documentation = documentation.lower()
         if documentation not in self.valid_docs:
             await self.valid(ctx)
             return
