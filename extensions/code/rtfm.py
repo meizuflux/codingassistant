@@ -1,17 +1,17 @@
-import difflib
+from core import Bot, Context
 from dataclasses import dataclass
-from traceback import format_exception
 from typing import Optional
 from urllib.parse import quote_plus
 
 import discord
 from bs4 import BeautifulSoup
 from discord.ext import commands
+from discord.utils import escape_markdown
 from requests_html import AsyncHTMLSession
 
-from extensions.code.func import SphinxObjectFileReader, parse_object_inv
+from extensions.code.func import SphinxObjectFileReader, finder, parse_object_inv
 
-NOTHING_FOUND = "Sorry, I couldn't find anything for that query."
+NOTHING_FOUND = "Your query returned no results."
 
 
 @dataclass
@@ -33,8 +33,8 @@ class WebScrapeRTFM:
         self.bot = bot
         self.cache = {doc: {} for doc in docs}
 
-    async def discordjs(self, ctx, url, query):
-        async with ctx.bot.session.get(self.parse_url(url + query)) as resp:
+    async def discordjs(self, ctx: Context, url: str, query: str) -> None:
+        async with ctx.bot.session.get(parse_url(url + query)) as resp:
             if not resp.ok:
                 await ctx.send(f"Looks like something went wrong here. HTTP Code {resp.status}")
             data = await resp.json()
@@ -48,14 +48,15 @@ class WebScrapeRTFM:
                 split_ = result.strip("*").split("](")
                 lines.append(f'[`{split_[0]}`]({split_[1].rstrip(")")})')
 
-            await ctx.send(embed=format_embed(lines, "discord.js"))
+            await ctx.send(embed=format_embed(lines))
             self.cache['discord.js'][query] = lines
 
-    async def rust(self, ctx, url, query):
-        url = self.parse_url(url + query)
+    #  made by komodo
+    async def rust(self, ctx: Context, url: str, query: str) -> None:
+        url = parse_url(url + query)
         sess = AsyncHTMLSession()
         r = await sess.get(url)
-        await r.html.arender()
+        await r.html.arender() #  This renders the page, JavaScript and all
         try:
             results = r.html.find('.search-results')[0].find('tr')
         except IndexError:
@@ -69,32 +70,30 @@ class WebScrapeRTFM:
             name = ''.join(i.text for i in spans)
             lines.append(f"[{name}]({links})")
 
-        await ctx.send(embed=format_embed(lines, "Rust"))
+        await ctx.send(embed=format_embed(lines))
         self.cache['rust'][query] = lines
         await sess.close()
 
-    async def c_or_cpp(self, ctx, url, text, lang):
-        async with ctx.bot.session.get(self.parse_url(url + "?title=Special:Search&search=" + text)) as resp:
+    async def c_or_cpp(self, ctx: Context, url: str, text: str, lang: str) -> None:
+        async with ctx.bot.session.get(parse_url(url + "?title=Special:Search&search=" + text)) as resp:
             if not resp.ok:
                 await ctx.send(f"Looks like something went wrong here. HTTP Code {resp.status}")
             soup = BeautifulSoup(str(await resp.text()), 'lxml')
 
         results = soup.find_all('ul', class_='mw-search-results')
-        if not len(results):
+        try:
+            links = results[0 if lang == "c++" else 1].find_all('a', limit=8)
+        except IndexError:
             await ctx.send(NOTHING_FOUND)
             return
-        links = results[0 if lang == "c++" else 1].find_all('a', limit=8)
+
         lines = [f"[`{a.string}`](https://en.cppreference.com/{a.get('href')})" for a in links]
-        await ctx.send(embed=format_embed(lines, lang.replace("p", "+").capitalize()))
+        await ctx.send(embed=format_embed(lines))
         self.cache[lang][text] = lines
 
-    @staticmethod
-    def parse_url(url):
-        return quote_plus(url, safe=';/?:@&=$,><-[]')
-
-    async def do_other(self, ctx, doc, url, query):
+    async def do_other(self, ctx: Context, doc: str, url: str, query: str) -> bool:
         if lines := self.cache.get(doc, {}).get(query):
-            await ctx.send(embed=format_embed(lines, doc))
+            await ctx.send(embed=format_embed(lines))
             return True
         else:
             if doc == "discord.js":
@@ -109,15 +108,19 @@ class WebScrapeRTFM:
             raise KeyError("Documentation not found.")
 
 
-def format_embed(lines, doc):
-    e = discord.Embed(colour=discord.Colour.blurple())
+def parse_url(url: str) -> str:
+    return quote_plus(url, safe=';/?:@&=$,><-[]')
+
+
+def format_embed(lines: list) -> discord.Embed:
+    e = discord.Embed(colour=discord.Colour.green())
     e.description = "\n".join(lines)
-    e.set_footer(text=f"Showing results from {doc} documentation.")
     return e
 
 
 class RTFM(commands.Cog):
-    def __init__(self, bot):
+    """Commands for querying documentation from various sources."""
+    def __init__(self, bot: Bot) -> None:
         self.bot = bot
         self._valid_docs = {
             "Discord.py": Docs(
@@ -196,13 +199,8 @@ class RTFM(commands.Cog):
                 url="https://docs.python-requests.org/en/master",
                 lang="Python"
             ),
-            "OpenCV": Docs(
-                url="https://docs.opencv.org/2.4.13.7",
-                lang="Python",
-                aliases=("cv","cv2")
-            ),
             "SymPy": Docs(
-                url="https://docs.sympy.org/latest/modules",
+                url="https://docs.sympy.org/latest",
                 lang="Python"
             ),
             "SciPy": Docs(
@@ -218,6 +216,14 @@ class RTFM(commands.Cog):
                 url="https://ipython.readthedocs.io/en/stable",
                 lang="Python"
             ),
+            "twitchio": Docs(
+                url="https://twitchio.readthedocs.io/en/latest",
+                lang="Python"
+            ),
+            "PRAW": Docs(
+                url="https://praw.readthedocs.io/en/latest",
+                lang="Python"
+            ),
             "Pandas": Docs(
                 url="https://pandas.pydata.org/pandas-docs/stable",
                 lang="Python"
@@ -231,13 +237,13 @@ class RTFM(commands.Cog):
                 lang="Python"
             ),
             "C": Docs(
-                url="https://cppreference.com/w/c/index.php",
+                url="https://cppreference.com/w/c",
                 lang="C",
                 _type="Language",
                 method=1
             ),
             "C++": Docs(
-                url="https://cppreference.com/w/cpp/index.php",
+                url="https://cppreference.com/w/cpp",
                 lang="C++",
                 _type="Language",
                 aliases=('cpp',),
@@ -256,9 +262,10 @@ class RTFM(commands.Cog):
             )
         }
         self.rtfm_cache = {item: {} for item in self._valid_docs}
-        self.webscrape = WebScrapeRTFM(self.bot, [m.lower() for m, value in self._valid_docs.items() if value.method == 1])
+        self.webscrape = WebScrapeRTFM(self.bot,
+                                       [m.lower() for m, value in self._valid_docs.items() if value.method == 1])
 
-    def get_url(self, key, parsing=True):
+    def get_url(self, key: str, parsing: bool=True) -> str:
         doc = self._valid_docs[key]
         if parsing:
             return doc.url
@@ -267,7 +274,7 @@ class RTFM(commands.Cog):
                 return doc_url
             return doc.url
 
-    async def build_table(self, key):
+    async def build_table(self, key: str) -> None:
         url = self.get_url(key)
         async with self.bot.session.get(url + '/objects.inv') as resp:
             if resp.status != 200:
@@ -276,21 +283,19 @@ class RTFM(commands.Cog):
             stream = SphinxObjectFileReader(await resp.read())
             self.rtfm_cache[key] = parse_object_inv(stream, url)
 
-    async def from_sphinx(self, ctx, key, obj):
+    async def from_sphinx(self, ctx: Context, key: str, obj: str):
         if not self.rtfm_cache[key]:
             await ctx.trigger_typing()
             await self.build_table(key)
 
-        cache = self.rtfm_cache[key]
-
-        matches = difflib.get_close_matches(obj, cache, cutoff=0.2)
+        cache = list(self.rtfm_cache[key].items())
+        matches = finder(obj, cache, key=lambda t: t[0])[:8]
 
         if len(matches) == 0:
             return await ctx.send(NOTHING_FOUND)
+        await ctx.send(embed=format_embed([f'[`{key}`]({url})' for key, url in matches]))
 
-        await ctx.send(embed=format_embed([f'[`{match}`]({cache[match]})' for match in matches], key))
-
-    async def do_rtfm(self, ctx, key, obj):
+    async def do_rtfm(self, ctx: Context, key: str, obj: str):
         if obj is None:
             await ctx.send(self.get_url(key, False))
             return
@@ -303,11 +308,11 @@ class RTFM(commands.Cog):
             if not worked:
                 await ctx.send("Looks like something went wrong.")
 
-    def get_key(self, query):
+    def get_key(self, query: str) -> str:
         return self.valid_docs[query]
 
     @property
-    def valid_docs(self):
+    def valid_docs(self) -> dict:
         items = {name.lower(): name for name in self._valid_docs}
         for name, doc in self._valid_docs.items():
             if not doc.aliases:
@@ -321,7 +326,7 @@ class RTFM(commands.Cog):
         aliases=('doc', 'documentation', 'docs', 'rtfs', 'rtm'),
         usage="<documentation> <query>"
     )
-    async def rtfm(self, ctx, documentation=None, *, query=None):
+    async def rtfm(self, ctx: Context, documentation: str=None, *, query: str=None) -> None:
         """Sends documentation based on an entity."""
         if documentation is None and query is None:
             await self.valid(ctx)
@@ -336,14 +341,16 @@ class RTFM(commands.Cog):
         await self.do_rtfm(ctx, key=self.get_key(documentation), obj=query)
 
     @rtfm.command()
-    async def valid(self, ctx):
+    async def valid(self, ctx: Context):
         embed = discord.Embed(color=discord.Color.red())
         embed.title = "These are the valid items you can query for documentation."
-        embed.description = f"Some of these may have aliases, you can use the `{ctx.prefix}rtfm info <doc>` command.\n\n`" + "`, `".join(sorted(self._valid_docs)) + "`"
+        embed.description = f"Some of these may have aliases, you can use the `{ctx.prefix}rtfm info <doc>` command.\n\n`" + "`, `".join(
+            sorted(self._valid_docs)) + "`"
+        embed.set_footer(text="These docs are case-insensitive.")
         await ctx.send(embed=embed)
 
     @rtfm.command()
-    async def info(self, ctx, documentation):
+    async def info(self, ctx: Context, documentation: str):
         documentation = documentation.lower()
         if documentation not in self.valid_docs:
             await self.valid(ctx)

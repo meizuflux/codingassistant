@@ -1,7 +1,11 @@
+from core import Bot
 from discord.ext import commands
 
 
 class BotInfo(commands.Cog):
+    """Information regarding the bot."""
+    def __init__(self, bot: Bot) -> None:
+        self.bot = bot
 
     @commands.command()
     async def info(self, ctx):

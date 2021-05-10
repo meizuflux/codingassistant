@@ -57,7 +57,6 @@ def parse_object_inv(stream, url):
     # next line is "# Project: <name>"
     # then after that is "# Version: <version>"
     projname = stream.readline().rstrip()[11:]
-    version = stream.readline().rstrip()[11:]
 
     # next line says if it's a zlib header
     line = stream.readline()
@@ -71,7 +70,7 @@ def parse_object_inv(stream, url):
         if not match:
             continue
 
-        name, directive, prio, location, dispname = match.groups()
+        name, directive, _, location, dispname = match.groups()
         domain, _, subdirective = directive.partition(':')
         if directive == 'py:module' and name in result:
             # From the Sphinx Repository:
@@ -97,3 +96,22 @@ def parse_object_inv(stream, url):
         result[f'{prefix}{key}'] = os.path.join(url, location)
 
     return result
+
+
+def finder(text, collection, *, key=None):
+    suggestions = []
+    text = str(text)
+    pat = '.*?'.join(map(re.escape, text))
+    regex = re.compile(pat, flags=re.IGNORECASE)
+    for item in collection:
+        to_search = key(item) if key else item
+        r = regex.search(to_search)
+        if r:
+            suggestions.append((len(r.group()), r.start(), item))
+
+    def sort_key(tup):
+        if key:
+            return tup[0], tup[1], key(tup[2])
+        return tup
+
+    return [z for _, _, z in sorted(suggestions, key=sort_key)]

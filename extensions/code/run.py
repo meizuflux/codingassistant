@@ -1,3 +1,5 @@
+from requests.models import ContentDecodingError
+from core import Bot, Context
 import re
 from typing import Optional
 
@@ -7,13 +9,14 @@ from ..utils import codeblock
 
 
 class ExecuteCode(commands.Cog):
-    def __init__(self, bot):
+    """Commands related to executing code."""
+    def __init__(self, bot: Bot) -> None:
         self.bot = bot
         self.languages = {}
         self.prep.start()
 
     @tasks.loop(hours=24)
-    async def prep(self):
+    async def prep(self) -> None:
         async with self.bot.session.get("https://emkc.org/api/v1/piston/versions") as resp:
             runtimes = await resp.json()
         for runtime in runtimes:
@@ -26,7 +29,7 @@ class ExecuteCode(commands.Cog):
     @commands.command(aliases=('exec', 'compile', 'execute', 'eval', 'e'))
     @commands.max_concurrency(1, commands.BucketType.user)
     @commands.cooldown(1, 5, commands.BucketType.user)
-    async def run(self, ctx, language, *, code: str):
+    async def run(self, ctx: Context, language: str, *, code: str) -> None:
         language = language.strip('`').lower()
         if language not in self.languages:
             await ctx.send(f"Unsupported Language: **{language}**")
