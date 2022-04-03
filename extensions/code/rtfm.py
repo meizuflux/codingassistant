@@ -102,7 +102,7 @@ class WebScrapeRTFM:
             if doc == "rust":
                 await self.rust(ctx, url, query)
                 return True
-            if doc in ("c", "c++"):
+            if doc in {"c", "c++"}:
                 await self.c_or_cpp(ctx, url, query, doc)
                 return True
             raise KeyError("Documentation not found.")
@@ -267,16 +267,14 @@ class RTFM(commands.Cog):
 
     def get_url(self, key: str, parsing: bool=True) -> str:
         doc = self._valid_docs[key]
-        if parsing:
-            return doc.url
-        else:
+        if not parsing:
             if doc_url := doc.doc_url:
                 return doc_url
-            return doc.url
+        return doc.url
 
     async def build_table(self, key: str) -> None:
         url = self.get_url(key)
-        async with self.bot.session.get(url + '/objects.inv') as resp:
+        async with self.bot.session.get(f'{url}/objects.inv') as resp:
             if resp.status != 200:
                 raise RuntimeError('Cannot build rtfm lookup table, try again later.')
 
