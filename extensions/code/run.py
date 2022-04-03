@@ -50,7 +50,7 @@ class ExecuteCode(commands.Cog):
                 msg = f"```yaml\nThe API seems to be having an issue.\nStatus: {resp.status}"
                 if r_msg := data.get('message'):
                     msg += f"\nMessage: {r_msg}"
-                await ctx.reply(msg + '```', mention_author=False)
+                await ctx.reply(f'{msg}```', mention_author=False)
                 return
 
         if not (output := data['output']):

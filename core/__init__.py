@@ -22,7 +22,7 @@ class Bot(commands.AutoShardedBot):
         # core
         self.loop = asyncio.get_event_loop()
         self.cwd = "D:/coding/codingassistant/"
-        with open(self.cwd + "config.toml") as config:
+        with open(f'{self.cwd}config.toml') as config:
             self.settings = toml.loads(config.read())
 
         self.loop.create_task(self.__asyncinit__())
